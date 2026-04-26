@@ -15,6 +15,7 @@ except Exception:
     _USE_ANSI = False
 
 
+# Build an ANSI escape sequence, or empty string if color is disabled.
 def _esc(code):
     return f'\033[{code}m' if _USE_ANSI else ''
 
@@ -27,6 +28,7 @@ CYAN  = _esc('36')
 RST   = _esc('0')
 
 
+# Wrap a string in the matching ANSI color/style.
 def bold(s):  return f'{BOLD}{s}{RST}'
 def green(s): return f'{GREEN}{s}{RST}'
 def red(s):   return f'{RED}{s}{RST}'
@@ -34,16 +36,19 @@ def cyan(s):  return f'{CYAN}{s}{RST}'
 def dim(s):   return f'{DIM}{s}{RST}'
 
 
+# Clear the terminal (no-op when piped).
 def clear():
     if _USE_ANSI:
         sys.stdout.write('\033[2J\033[H')
         sys.stdout.flush()
 
 
+# Print a full-width horizontal rule.
 def hr():
     print(dim('-' * 80))
 
 
+# Block until the user presses ENTER; tolerates piped input gracefully.
 def pause(msg='Press ENTER to continue...'):
     try:
         input(dim(f'\n  {msg}'))
@@ -75,6 +80,7 @@ _WEATHER = [
 _TIME_OF_DAY = ['Day game', 'Twilight game', 'Night game']
 
 
+# Pick a random time of day, weather type, and temperature for the game.
 def gen_conditions():
     time  = random.choice(_TIME_OF_DAY)
     label, lo, hi = random.choice(_WEATHER)
@@ -82,6 +88,7 @@ def gen_conditions():
     return f'{time}  ·  {label}  ·  {temp}°F'
 
 
+# Prompt the player to choose one of the five NL West teams.
 def pick_player_team():
     clear()
     hr()
@@ -114,6 +121,7 @@ _ARCHETYPES = {
 # CPU allocation
 # ---------------------------------------------------------------------------
 
+# Distribute exactly 9 dice proportional to a list of 4 weights, no rounding loss.
 def _distribute_9(weights):
     """Distribute exactly 9 dice proportional to a list of 4 weights."""
     total = sum(weights)
@@ -130,6 +138,7 @@ def _distribute_9(weights):
     return counts
 
 
+# Pick a random CPU archetype and allocate its 9 dice with slight jitter.
 def cpu_allocate():
     style = random.choice(list(_ARCHETYPES.keys()))
     base = _ARCHETYPES[style]
@@ -142,6 +151,7 @@ def cpu_allocate():
 # Player allocation
 # ---------------------------------------------------------------------------
 
+# Interactively prompt the player to assign 9 dice across the 4 slots.
 def player_allocate():
     print(bold(f'\n  Allocate your {TOTAL_DICE} dice across 4 slots (must sum to {TOTAL_DICE}):'))
     while True:
@@ -170,6 +180,7 @@ def player_allocate():
 # Dice rolling
 # ---------------------------------------------------------------------------
 
+# Roll n D3 dice and return the individual rolls and their sum.
 def roll_slot(n):
     """Roll n D3 dice. Returns (rolls_list, total)."""
     if n == 0:
@@ -178,6 +189,7 @@ def roll_slot(n):
     return rolls, sum(rolls)
 
 
+# Roll all four slots for both the player and CPU.
 def roll_all(p_alloc, c_alloc):
     return (
         [roll_slot(n) for n in p_alloc],
@@ -189,6 +201,7 @@ def roll_all(p_alloc, c_alloc):
 # Scoring
 # ---------------------------------------------------------------------------
 
+# Apply the scoring formula: hits minus opponent's prevention, floored at 0 per phase.
 def compute_score(p_rolls, c_rolls):
     p_hvsp,  p_hvrp  = p_rolls[0][1], p_rolls[1][1]
     p_spprev, p_rpprev = p_rolls[2][1], p_rolls[3][1]
@@ -200,6 +213,7 @@ def compute_score(p_rolls, c_rolls):
     return p_runs, c_runs
 
 
+# Generate a plausible hit total from a run total.
 def gen_hits(runs):
     if runs == 0:
         # No-hitters are rare (~3%); usually strand 1-6 runners
@@ -207,6 +221,7 @@ def gen_hits(runs):
     return int(runs * random.uniform(1.0, 2.0))
 
 
+# Generate a random error count weighted heavily toward zero.
 def gen_errors():
     r = random.random()
     if r < 0.88:
@@ -216,6 +231,7 @@ def gen_errors():
     return random.randint(1, 3)
 
 
+# Randomly scatter runs across innings for a realistic-looking box score line.
 def _spread_runs(runs, num_innings):
     """Randomly distribute runs across num_innings innings."""
     innings = [0] * num_innings
@@ -224,6 +240,7 @@ def _spread_runs(runs, num_innings):
     return innings
 
 
+# Generate a quick CPU vs CPU result for the other division game (no ties allowed).
 def simulate_game():
     """Random runs for a CPU vs CPU game. Re-rolls on tie."""
     r1 = random.randint(0, 10)
@@ -256,6 +273,7 @@ _DIAMOND_ART = r"""
 """
 
 
+# Display the title art and diamond, then wait for the player to start.
 def show_start_screen():
     clear()
     hr()
@@ -271,6 +289,7 @@ def show_start_screen():
 # Display
 # ---------------------------------------------------------------------------
 
+# Print the persistent top bar showing game number, matchup, record, and conditions.
 def show_header(game_num, record, player_team='', opponent='', conditions=''):
     clear()
     hr()
@@ -286,6 +305,7 @@ def show_header(game_num, record, player_team='', opponent='', conditions=''):
     hr()
 
 
+# Show the dice allocations for both sides side by side.
 def show_reveal(p_alloc, c_alloc, p_label='You', c_label='CPU'):
     print(bold('\n  LINEUP CARD'))
     hr()
@@ -296,6 +316,7 @@ def show_reveal(p_alloc, c_alloc, p_label='You', c_label='CPU'):
     hr()
 
 
+# Display each slot's dice count and resulting roll total for both sides.
 def show_rolls(p_alloc, c_alloc, p_rolls, c_rolls, p_label='You', c_label='CPU'):
     print(bold('\n  ROLLS'))
     hr()
@@ -311,6 +332,7 @@ def show_rolls(p_alloc, c_alloc, p_rolls, c_rolls, p_label='You', c_label='CPU')
     hr()
 
 
+# Render the 9-inning grid with R/H/E totals and the win/loss result line.
 def show_boxscore(p_sp, p_rp, c_sp, c_rp, p_runs, c_runs,
                   p_hits, c_hits, p_err, c_err, p_label='You', c_label='CPU'):
     # SP runs land in innings 1-6, RP runs in innings 7-9
@@ -342,6 +364,7 @@ def show_boxscore(p_sp, p_rp, c_sp, c_rp, p_runs, c_runs,
 # Tiebreaker
 # ---------------------------------------------------------------------------
 
+# Roll one D3 per side, re-rolling until there's a winner.
 def run_tiebreaker():
     """Roll 1D3 each side until different. Returns ('player'|'cpu', p_roll, c_roll)."""
     while True:
@@ -352,6 +375,7 @@ def run_tiebreaker():
             return winner, p, c
 
 
+# Display the tiebreaker rolls and declare the winner.
 def show_tiebreaker(game_num, record, p_roll, c_roll, winner,
                     player_team='', opponent='', conditions='',
                     p_label='You', c_label='CPU'):
@@ -379,6 +403,7 @@ _FLAVOR = [
 ]
 
 
+# Show final standings, player stats, and a flavor line based on win total.
 def show_season_summary(record, p_total, c_total, standings, player_team):
     clear()
     hr()
@@ -404,6 +429,7 @@ def show_season_summary(record, p_total, c_total, standings, player_team):
     print()
 
 
+# Print the simulated game score and the team on bye for this round.
 def show_other_results(sim_t1, sim_r1, sim_t2, sim_r2, bye_team):
     print(bold('\n  OTHER RESULTS'))
     hr()
@@ -412,6 +438,7 @@ def show_other_results(sim_t1, sim_r1, sim_t2, sim_r2, bye_team):
     hr()
 
 
+# Render the division table sorted by wins then run differential, with GB column.
 def show_standings(standings, player_team):
     sorted_teams = sorted(
         TEAMS,
@@ -442,6 +469,7 @@ def show_standings(standings, player_team):
 # Game and season loops
 # ---------------------------------------------------------------------------
 
+# Run one full game: allocate → reveal → roll → score → box score → optional tiebreaker.
 def play_game(game_num, record, player_team, opponent):
     cond = gen_conditions()
     pl, cl = player_team, opponent
@@ -486,6 +514,7 @@ def play_game(game_num, record, player_team, opponent):
     return p_runs, c_runs, winner
 
 
+# Loop through 5 games, simulate division results after each, then show the summary.
 def play_season(player_team):
     standings = {t: {'w': 0, 'l': 0, 'rs': 0, 'ra': 0} for t in TEAMS}
     p_total = 0
@@ -541,6 +570,7 @@ def play_season(player_team):
     show_season_summary(final_record, p_total, c_total, standings, player_team)
 
 
+# Entry point: start screen → team pick → season loop → play again prompt.
 def main():
     try:
         show_start_screen()
